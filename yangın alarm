@@ -1,6 +1,6 @@
 #define LED D2
 #define BUTTON D3
-#define CARBON A0
+#define CARBON D5
 #define NATURALGAS A0 // Not: NodeMCU'da sadece bir analog pin var
 #define BUZZER D4
 
