@@ -1,0 +1,81 @@
+#include <ESP8266WiFi.h>
+
+#define ssid "Tenda_19E948"  // Wi-Fi ağ adın
+#define password "RKg2UqET"  // Wi-Fi şifren
+
+const char* host = "maker.ifttt.com";
+const int httpPort = 80;
+
+#define BUTTON D4  // GPIO 2 (pull-up buton)
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);  // Seri portun hazır olması için artırıldı
+  pinMode(BUTTON, INPUT_PULLUP);
+
+  Serial.println("NodeMCU Email Test Başladı");
+
+  // Wi-Fi bağlantısı
+  Serial.print("Bağlanıyor: ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+
+  // Zaman aşımı ile bağlantı
+  unsigned long startTime = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi bağlandı");
+    Serial.print("IP adresi: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\nWiFi bağlantısı başarısız!");
+  }
+}
+
+void loop() {
+  // Butona basıldığında
+
+  WiFiClient client;
+  if (!client.connect(host, httpPort)) {
+    Serial.println("Bağlantı başarısız!");
+    delay(1000);  // Tekrar denemeden önce bekle
+    return;
+  }
+
+  if (digitalRead(BUTTON) == 0) {
+    // IFTTT Webhook URL’si
+    String url = "/trigger/sendmail/with/key/mBdp6CjBwBnYhG3-fQftWACC3DqZDxmdhqQe_EAxiu9";
+    Serial.print("İstek gönderiliyor: ");
+    Serial.println(url);
+
+    // HTTP GET isteği
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+
+    // Sunucu yanıtını bekle
+    unsigned long timeout = millis();
+    while (client.available() == 0) {
+      if (millis() - timeout > 5000) {
+        Serial.println("Sunucu yanıtı zaman aşımına uğradı!");
+        client.stop();
+        return;
+      }
+    }
+
+    // Sunucu yanıtını oku
+    while (client.available()) {
+      String line = client.readStringUntil('\r');
+      Serial.print(line);
+    }
+    Serial.println("\nİstek tamamlandı");
+
+    // Buton bırakılana kadar bekle (debounce)
+    while (digitalRead(BUTTON) == LOW) {
+      delay(10);
+    }
+    delay(1000);  // Tekrar gönderimi önlemek için
+  }
+}
