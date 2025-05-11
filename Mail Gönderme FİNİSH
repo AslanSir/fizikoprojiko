@@ -1,0 +1,110 @@
+#include <SoftwareSerial.h>
+SoftwareSerial esp(10, 11); // RX, TX
+
+// Pin Tanımlamaları
+#define BUTTON_PIN 4 // Buton 4. pine bağlı
+
+// WiFi Ayarları
+const char* ssid = "Tenda_19E948";
+const char* password = "RKg2UqET";
+const char* host = "maker.ifttt.com";
+const int httpPort = 80;
+
+// Değişkenler
+unsigned long lastDebounceTime = 0;
+const unsigned long debounceDelay = 50; // Debounce süresi (ms)
+
+void setup() {
+  Serial.begin(9600);
+  esp.begin(115200);
+  
+  // Buton Girişi
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  
+  initializeESP();
+}
+
+void loop() {
+  // Buton okuma (Pull-up olduğu için LOW aktif)
+  int buttonState = digitalRead(BUTTON_PIN);
+  
+  if(buttonState == LOW && (millis() - lastDebounceTime) > debounceDelay){
+    lastDebounceTime = millis();
+    Serial.println("Buton basıldı! İstek gönderiliyor...");
+    sendEmailRequest();
+  }
+}
+
+void initializeESP() {
+  sendCommand("AT", "OK", 2000);
+  sendCommand("AT+CWMODE=1", "OK", 2000);
+  
+  Serial.println("Ağa bağlanıyor...");
+  String connectCmd = "AT+CWJAP=\"" + String(ssid) + "\",\"" + String(password) + "\"";
+  if(sendCommand(connectCmd, "OK", 10000)){
+    Serial.println("Ağa bağlandı");
+  } else {
+    Serial.println("Ağa bağlanamadı!");
+  }
+}
+
+void sendEmailRequest() {
+  // TCP bağlantısı kur
+  String tcpCommand = "AT+CIPSTART=\"TCP\",\"" + String(host) + "\",80";
+  if(!sendCommand(tcpCommand, "OK", 5000)) {
+    Serial.println("IFTTT sunucusuna bağlanılamadı");
+    return;
+  }
+
+  // GET isteğini hazırla
+  String url = "/trigger/sendmail/with/key/mBdp6CjBwBnYhG3-fQftWACC3DqZDxmdhqQe_EAxiu9";
+  String request = "GET " + url + " HTTP/1.1\r\n"
+                   "Host: " + String(host) + "\r\n"
+                   "Connection: close\r\n\r\n";
+
+  // Veri gönder
+  String sendCmd = "AT+CIPSEND=" + String(request.length());
+  if(!sendCommand(sendCmd, ">", 3000)) {
+    Serial.println("Gönderim başlatılamadı");
+    return;
+  }
+
+  esp.print(request);
+  Serial.println("İstek gönderildi");
+  
+  // Yanıtı oku
+  if(waitForResponse("200 OK", 5000)) {
+    Serial.println("E-posta gönderimi başarılı!");
+  } else {
+    Serial.println("Sunucu yanıtı alınamadı");
+  }
+
+  // Bağlantıyı kapat
+  sendCommand("AT+CIPCLOSE", "CLOSED", 2000);
+  Serial.println("Bağlantı kapatıldı");
+}
+
+// Yardımcı Fonksiyonlar
+bool waitForResponse(const String& target, int timeout) {
+  unsigned long start = millis();
+  String response = "";
+
+  while(millis() - start < timeout) {
+    while(esp.available()) {
+      char c = esp.read();
+      response += c;
+      if(response.indexOf(target) != -1) {
+        Serial.println("[ESP] " + response);
+        return true;
+      }
+    }
+  }
+  Serial.println("[Timeout] " + response);
+  return false;
+}
+
+bool sendCommand(const String& cmd, const String& expected, int timeout) {
+  Serial.println("[Gönderilen] " + cmd);
+  esp.println(cmd);
+  return waitForResponse(expected, timeout);
+}
