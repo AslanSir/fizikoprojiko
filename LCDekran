@@ -1,0 +1,21 @@
+#include <LiquidCrystal_I2C.h>
+
+
+LiquidCrystal_I2C lcd(0x27, 16,2); // Eğer çalışmazsa 0x3F veya 0x3f olmalı
+void setup() {
+  lcd.begin();
+
+  lcd.setCursor(0,0); //cursor ayaRLIYOR
+  lcd.print("Sa");
+
+  lcd.clear(); // yazıyı siler
+
+  lcd.noBacklight(); // kapatır
+
+  lcd.backlight(); // açar
+}
+
+void loop() {
+  
+
+}
