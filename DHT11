@@ -1,0 +1,20 @@
+#include <dht11.h>
+#define DHTPIN 5
+
+dht11 DHT11;
+
+void setup() {
+  Serial.begin(9600); // Seri iletişimi başlat
+}
+
+void loop() {
+  int chk = DHT11.read(DHTPIN); // Sensörü loop içinde oku
+  
+  Serial.print("Nem: ");
+  Serial.println((float)DHT11.humidity, 2);
+  
+  Serial.print("Sıcaklık: ");
+  Serial.println((float)DHT11.temperature, 2);
+  
+  delay(2000); // 2 saniye bekle (DHT11 için önerilen min. 1 saniye)
+}
